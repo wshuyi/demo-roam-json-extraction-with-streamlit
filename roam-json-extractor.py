@@ -6,6 +6,18 @@ import json
 from io import StringIO
 import base64
 import os
+import pickle
+import rsa
+
+def compare_keys(mypass, auth_file):
+    with open(auth_file, 'rb') as f:
+        (privateKey, cryptedPass) = pickle.load(f)
+
+    restored = rsa.decrypt(cryptedPass, privateKey)
+
+    restored = restored.decode()
+
+    return restored == mypass
 
 def extract_json_from_zip(json_zip):
     extracted_dir = Path("./extracted")
@@ -18,7 +30,7 @@ def extract_json_from_zip(json_zip):
         zipObj.extractall(extracted_dir)
 
     exported_json = list(Path(extracted_dir).glob("*.json"))[0]
-    shutil.rmtree(extracted_dir)
+    # shutil.rmtree(extracted_dir)
     return exported_json
 
 
@@ -76,10 +88,14 @@ if uploaded_file is not None:
         extracted_json_file = extract_json_from_zip(uploaded_file)
         with open(extracted_json_file) as f:
             json_content = json.load(f)
+        os.remove(extracted_json_file)
     st.write(f"{len(json_content)} items in your JSON file")
     tags_white_list = st.text_area("Tags in the white list:", 'roamconfig\nevergreen').split('\n')
     tags_black_list = st.text_area("Tags in the black list", 'private\nzsxq\nmonetize').split('\n')
-    if st.button("extract!"):
+    
+    mypass = st.text_input("Please input your password to continue:", type='password')
+    auth_file = 'auth.pickle'
+    if compare_keys(mypass, auth_file):
         lst_export_objects = []
         for item in json_content:
             flag_export_item = decide_page_export(item, tags_black_list, tags_white_list)
@@ -103,10 +119,14 @@ if uploaded_file is not None:
                 Click to download\
             </a>'
 
-        st.markdown(href, unsafe_allow_html=True)
 
         # clean up
         os.remove(out_json)
         os.remove(out_json_zip)
+
+            
+        st.markdown(href, unsafe_allow_html=True)
+
+        
 
     
